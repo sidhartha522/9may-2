@@ -1,0 +1,46 @@
+.App {
+  max-width: 600px;
+  margin: 20px auto;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+
+.page {
+  margin-top: 20px;
+}
+
+input, select {
+  padding: 8px;
+  margin: 5px 0;
+  width: 80%;
+  max-width: 300px;
+}
+
+button {
+  margin: 5px;
+  padding: 10px 20px;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+button.violet {
+  background-color: #7b5cff;
+}
+
+button.blue {
+  background-color: #3b82f6;
+}
+
+button.green {
+  background-color: #22c55e;
+}
+
+button.red {
+  background-color: #ef4444;
+}
+
+.error-message {
+  color: red;
+}
