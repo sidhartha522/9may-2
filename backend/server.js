@@ -20,9 +20,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "your_very_strong_jwt_secret_here_c
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/creditledger";
 
 // Connect to MongoDB
-mongoose.connect(MONGO_URI, {
-  // Removed deprecated options as per latest driver versions
-});
+mongoose.connect(MONGO_URI);
 
 mongoose.connection.on("connected", () => {
   console.log("MongoDB connected");
@@ -114,6 +112,35 @@ app.get("/api/businesses", authMiddleware, async (req, res) => {
     res.json(owners);
   } catch (error) {
     console.error("Get businesses error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get customers for a business owner (by username)
+app.get("/api/customers/:username", authMiddleware, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    // Find distinct customerIds who have transactions with this business owner
+    const customerIds = await Transaction.distinct("customerId", { businessId: username });
+
+    // For each customerId, calculate their current balance with this business owner
+    const customers = await Promise.all(
+      customerIds.map(async (customerId) => {
+        const transactions = await Transaction.find({ businessId: username, customerId });
+        let balance = 0;
+        transactions.forEach((tx) => {
+          if (tx.type === "Credit Taken") balance += tx.amount;
+          else if (tx.type === "Payment Made") balance -= tx.amount;
+        });
+        if (balance < 0) balance = 0;
+        return { customerId, balance };
+      })
+    );
+
+    res.json(customers);
+  } catch (error) {
+    console.error("Get customers error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

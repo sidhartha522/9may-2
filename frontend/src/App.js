@@ -101,7 +101,8 @@ function Login({ onLogin, onSignUpClick, onBack }) {
         <br />
         <button className="violet" type="submit">
           Login
-        </button>     </form>
+        </button>
+      </form>
       <button className="blue" onClick={onSignUpClick}>
         Sign Up
       </button>
@@ -170,26 +171,25 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
   const [transactions, setTransactions] = useState([]);
   const [balance, setBalance] = useState(0);
 
-  const fetchTransactionsAndBalance = async () => {
-    try {
-      const [txRes, balRes] = await Promise.all([
-        axios.get(`${API_BASE}/transactions/${businessId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { customerId },
-        }),
-        axios.get(`${API_BASE}/credit/${businessId}/${customerId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
-      setTransactions(txRes.data);
-      setBalance(balRes.data.balance);
-    } catch {
-      setTransactions([]);
-      setBalance(0);
-    }
-  };
-
   useEffect(() => {
+    const fetchTransactionsAndBalance = async () => {
+      try {
+        const [txRes, balRes] = await Promise.all([
+          axios.get(`${API_BASE}/transactions/${businessId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { customerId },
+          }),
+          axios.get(`${API_BASE}/credit/${businessId}/${customerId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+        setTransactions(txRes.data);
+        setBalance(balRes.data.balance);
+      } catch {
+        setTransactions([]);
+        setBalance(0);
+      }
+    };
     fetchTransactionsAndBalance();
   }, [businessId, customerId, token]);
 
@@ -217,7 +217,18 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
       setDescription("");
       setPhoto(null);
       setAction(null);
-      fetchTransactionsAndBalance();
+      // Refresh transactions and balance after submission
+      const [txRes, balRes] = await Promise.all([
+        axios.get(`${API_BASE}/transactions/${businessId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { customerId },
+        }),
+        axios.get(`${API_BASE}/credit/${businessId}/${customerId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      setTransactions(txRes.data);
+      setBalance(balRes.data.balance);
     } catch {
       setMessage("Failed to record transaction.");
     }
@@ -285,7 +296,7 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
           <br />
           <input
             type="text"
-            placeholder="Description (optional)"
+            placeholder="Description(optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -314,132 +325,114 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
   );
 }
 
-function OwnerFlow({ token, ownerId, onBack }) {
-  const [transactions, setTransactions] = useState([]);
+function OwnerFlow({ token, username, onBack }) {
   const [customers, setCustomers] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [loadingCustomers, setLoadingCustomers] = useState(true);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const fetchTransactions = async () => {
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/customers/${encodeURIComponent(username)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCustomers(res.data);
+      } catch {
+        setCustomers([]);
+        setMessage("Failed to load customers.");
+      } finally {
+        setLoadingCustomers(false);
+      }
+    };
+    fetchCustomers();
+  }, [token, username]);
+
+  const fetchTransactions = async (customerId = null) => {
+    setLoadingTransactions(true);
     try {
-      const res = await axios.get(`${API_BASE}/transactions/${ownerId}`, {
+      let url = `${API_BASE}/transactions/${encodeURIComponent(username)}`;
+      if (customerId) {
+        url += `?customerId=${encodeURIComponent(customerId)}`;
+      }
+      const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTransactions(res.data);
-      const custSet = new Set(res.data.map((tx) => tx.customerId));
-      setCustomers(Array.from(custSet));
+      setMessage("");
     } catch {
       setTransactions([]);
-      setCustomers([]);
+      setMessage("Failed to load transactions.");
+    } finally {
+      setLoadingTransactions(false);
     }
   };
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [ownerId, token]);
+  const handleCustomerClick = (customerId) => {
+    setSelectedCustomer(customerId);
+    fetchTransactions(customerId);
+  };
 
-  const transactionsForCustomer = selectedCustomer
-    ? transactions.filter((tx) => tx.customerId === selectedCustomer)
-    : [];
+  const handleViewAllClick = () => {
+    setSelectedCustomer(null);
+    fetchTransactions();
+  };
 
   return (
     <div className="page">
-      <h2>Business Owner Flow - {ownerId}</h2>
+      <h2>Business Owner Flow</h2>
+      <button className="red" onClick={onBack}>
+        Logout
+      </button>
 
-      {!selectedCustomer ? (
-        <>
-          <h3>Customers</h3>
-          {customers.length === 0 ? (
-            <p>No customers yet.</p>
-          ) : (
-            <ul>
-              {customers.map((cust) => {
-                const custTxs = transactions.filter((tx) => tx.customerId === cust);
-                let balance = 0;
-                custTxs.forEach((tx) => {
-                  if (tx.type === "Credit Taken") balance += tx.amount;
-                  else if (tx.type === "Payment Made") balance -= tx.amount;
-                });
-                if (balance < 0) balance = 0;
-                return (
-                  <li key={cust}>
-                    <button
-                      className="blue"
-                      onClick={() => setSelectedCustomer(cust)}
-                    >
-                      {cust} - Credit: ₹{balance.toFixed(2)}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <button
-            className="green"
-            onClick={() => setSelectedCustomer("all")}
-            style={{ marginTop: "15px" }}
-          >
-            View All Transactions
-          </button>
-          <br />
-          <button className="red" onClick={onBack} style={{ marginTop: "15px" }}>
-            Logout
-          </button>
-        </>
-      ) : selectedCustomer === "all" ? (
-        <>
-          <h3>All Transactions for {ownerId}</h3>
-          {transactions.length === 0 ? (
-            <p>No transactions yet.</p>
-          ) : (
-            <ul>
-              {transactions.map((tx) => (
-                <li key={tx._id}>
-                  [{new Date(tx.timestamp).toLocaleString()}] Customer: {tx.customerId} - {tx.type} - ₹
-                  {tx.amount.toFixed(2)} {tx.description && `- ${tx.description}`}
-                  {tx.photo && (
-                    <div>
-                      <img
-                        src={tx.photo}
-                        alt="Bill"
-                        style={{ maxWidth: "100px", marginTop: "5px" }}
-                      />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>          )}
-          <button className="red" onClick={() => setSelectedCustomer(null)} style={{ marginTop: "15px" }}>
-            Back to Customers
-          </button>
-        </>
+      <h3>Customers</h3>
+      {loadingCustomers ? (
+        <p>Loading customers...</p>
+      ) : customers.length === 0 ? (
+        <p>No customers found.</p>
       ) : (
-        <>
-          <h3>Transactions for Customer: {selectedCustomer}</h3>
-          {transactionsForCustomer.length === 0 ? (
-            <p>No transactions yet.</p>
-          ) : (
-            <ul>
-              {transactionsForCustomer.map((tx) => (
-                <li key={tx._id}>
-                  [{new Date(tx.timestamp).toLocaleString()}] {tx.type} - ₹
-                  {tx.amount.toFixed(2)} {tx.description && `- ${tx.description}`}
-                  {tx.photo && (
-                    <div>
-                      <img
-                        src={tx.photo}
-                        alt="Bill"
-                        style={{ maxWidth: "100px", marginTop: "5px" }}
-                      />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          <button className="red" onClick={() => setSelectedCustomer(null)} style={{ marginTop: "15px" }}>
-            Back to Customers
-          </button>
-        </>
+        <ul>
+          {customers.map(({ customerId, balance }) => (
+            <li
+              key={customerId}
+              style={{
+                cursor: "pointer",
+                fontWeight: selectedCustomer === customerId ? "bold" : "normal",
+              }}
+              onClick={() => handleCustomerClick(customerId)}
+            >
+              {customerId} - Credit Balance: ₹{balance.toFixed(2)}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button onClick={handleViewAllClick} style={{ marginTop: "1rem" }}>
+        View All Transactions
+      </button>
+
+      <h3 style={{ marginTop: "2rem" }}>
+        Transactions {selectedCustomer ? `for ${selectedCustomer}` : "(All)"}
+      </h3>
+      {loadingTransactions ? (
+        <p>Loading transactions...</p>
+      ) : message ? (
+        <p>{message}</p>
+      ) : transactions.length === 0 ? (
+        <p>No transactions found.</p>
+      ) : (
+        <ul>
+          {transactions.map((tx) => (
+            <li key={tx._id} style={{ marginBottom: "1rem" }}>
+              <strong>{tx.type}</strong> - Amount: ₹{tx.amount} -{" "}
+              {new Date(tx.timestamp).toLocaleString()}
+              <br />
+              Description: {tx.description || "N/A"}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -450,9 +443,28 @@ function App() {
   const [user, setUser] = useState(null);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
 
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      if (parsedUser.userType === "customer") {
+        setPage("selectBusiness");
+      } else {
+        setPage("ownerFlow");
+      }
+    }
+  }, []);
+
   const handleLogin = (data) => {
-    setUser({ token: data.token, username: data.user.username, userType: data.user.userType });
-    if (data.user.userType === "customer") {
+    const userData = {
+      token: data.token,
+      username: data.user.username,
+      userType: data.user.userType,
+    };
+    setUser(userData);
+    localStorage.setItem("user", JSON.stringify(userData));
+    if (userData.userType === "customer") {
       setPage("selectBusiness");
     } else {
       setPage("ownerFlow");
@@ -463,13 +475,14 @@ function App() {
     setUser(null);
     setSelectedBusiness(null);
     setPage("welcome");
+    localStorage.removeItem("user");
   };
 
   return (
     <div className="App">
-      <h1>Credit Ledger App</h1>
       {page === "welcome" && (
         <>
+          <h1>Welcome to Credit Manager</h1>
           <button className="violet" onClick={() => setPage("login")}>
             Login
           </button>
@@ -494,7 +507,7 @@ function App() {
         />
       )}
 
-      {page === "selectBusiness" && user && user.userType === "customer" && (
+      {page === "selectBusiness" && user && (
         <SelectBusiness
           token={user.token}
           onSelect={(business) => {
@@ -514,8 +527,12 @@ function App() {
         />
       )}
 
-      {page === "ownerFlow" && user && user.userType === "owner" && (
-        <OwnerFlow token={user.token} ownerId={user.username} onBack={handleLogout} />
+      {page === "ownerFlow" && user && (
+        <OwnerFlow
+          token={user.token}
+          username={user.username}
+          onBack={handleLogout}
+        />
       )}
     </div>
   );
