@@ -6,17 +6,34 @@ const API_BASE = "http://localhost:4000/api";
 
 function SignUp({ onSignUpSuccess, onBack }) {
   const [userType, setUserType] = useState("customer");
-  const [username, setUsername] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [photo, setPhoto] = useState(null);
   const [message, setMessage] = useState("");
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setPhoto(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSignUp = async () => {
-    if (!username.trim() || !password.trim()) {
-      setMessage("Please enter username and password.");
+    if (!phoneNumber.trim() || !password.trim() || !name.trim()) {
+      setMessage("Please enter all required fields.");
       return;
     }
     try {
-      await axios.post(`${API_BASE}/signup`, { username, password, userType });
+      await axios.post(`${API_BASE}/signup`, {
+        phoneNumber,
+        password,
+        userType,
+        name,
+        photo,
+      });
       setMessage("Sign up successful! You can now log in.");
       onSignUpSuccess();
     } catch (err) {
@@ -36,11 +53,11 @@ function SignUp({ onSignUpSuccess, onBack }) {
       </label>
       <br />
       <input
-        type="text"
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        autoComplete="off"
+        type="tel"
+        placeholder="Phone Number"
+        value={phoneNumber}
+        onChange={(e) => setPhoneNumber(e.target.value)}
+        autoComplete="tel"
       />
       <br />
       <input
@@ -50,6 +67,24 @@ function SignUp({ onSignUpSuccess, onBack }) {
         onChange={(e) => setPassword(e.target.value)}
         autoComplete="new-password"
       />
+      <br />
+      <input
+        type="text"
+        placeholder={userType === "customer" ? "Customer Name" : "Business Name"}
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <br />
+      <input type="file" accept="image/*" onChange={handlePhotoChange} />
+      {photo && (
+        <div>
+          <img
+            src={photo}
+            alt="Profile"
+            style={{ maxWidth: "200px", marginTop: "10px" }}
+          />
+        </div>
+      )}
       <br />
       <button className="violet" onClick={handleSignUp}>
         Sign Up
@@ -63,14 +98,14 @@ function SignUp({ onSignUpSuccess, onBack }) {
 }
 
 function Login({ onLogin, onSignUpClick, onBack }) {
-  const [username, setUsername] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post(`${API_BASE}/login`, { username, password });
+      const res = await axios.post(`${API_BASE}/login`, { phoneNumber, password });
       onLogin(res.data);
     } catch {
       setError("Invalid credentials");
@@ -82,12 +117,12 @@ function Login({ onLogin, onSignUpClick, onBack }) {
       <h2>Login</h2>
       <form onSubmit={handleSubmit}>
         <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          type="tel"
+          placeholder="Phone Number"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
           required
-          autoComplete="username"
+          autoComplete="tel"
         />
         <br />
         <input
@@ -144,12 +179,18 @@ function SelectBusiness({ token, onSelect, onBack }) {
       ) : (
         <ul>
           {businessOwners.map((owner) => (
-            <li key={owner.username}>
+            <li key={owner.phoneNumber}>
               <button
                 className="blue"
-                onClick={() => onSelect(owner.username)}
+                onClick={() => onSelect(owner.phoneNumber)}
               >
-                {owner.username}
+                {owner.name} {owner.photo && (
+                  <img
+                    src={owner.photo}
+                    alt="Business"
+                    style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                  />
+                )}
               </button>
             </li>
           ))}
@@ -217,7 +258,6 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
       setDescription("");
       setPhoto(null);
       setAction(null);
-      // Refresh transactions and balance after submission
       const [txRes, balRes] = await Promise.all([
         axios.get(`${API_BASE}/transactions/${businessId}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -268,6 +308,24 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
                 <li key={tx._id}>
                   [{new Date(tx.timestamp).toLocaleString()}] {tx.type} - ₹
                   {tx.amount.toFixed(2)} {tx.description && `- ${tx.description}`}
+                  <br />
+                  <strong>Customer:</strong> {tx.customerName}{" "}
+                  {tx.customerPhoto && (
+                    <img
+                      src={tx.customerPhoto}
+                      alt="Customer"
+                      style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                    />
+                  )}
+                  <br />
+                  <strong>Business:</strong> {tx.businessName}{" "}
+                  {tx.businessPhoto && (
+                    <img
+                      src={tx.businessPhoto}
+                      alt="Business"
+                      style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                    />
+                  )}
                   {tx.photo && (
                     <div>
                       <img
@@ -325,7 +383,7 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
   );
 }
 
-function OwnerFlow({ token, username, onBack }) {
+function OwnerFlow({ token, phoneNumber, onBack }) {
   const [customers, setCustomers] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -336,7 +394,7 @@ function OwnerFlow({ token, username, onBack }) {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/customers/${encodeURIComponent(username)}`, {
+        const res = await axios.get(`${API_BASE}/customers/${encodeURIComponent(phoneNumber)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCustomers(res.data);
@@ -348,12 +406,12 @@ function OwnerFlow({ token, username, onBack }) {
       }
     };
     fetchCustomers();
-  }, [token, username]);
+  }, [token, phoneNumber]);
 
   const fetchTransactions = async (customerId = null) => {
     setLoadingTransactions(true);
     try {
-      let url = `${API_BASE}/transactions/${encodeURIComponent(username)}`;
+      let url = `${API_BASE}/transactions/${encodeURIComponent(phoneNumber)}`;
       if (customerId) {
         url += `?customerId=${encodeURIComponent(customerId)}`;
       }
@@ -361,7 +419,6 @@ function OwnerFlow({ token, username, onBack }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTransactions(res.data);
-      setMessage("");
     } catch {
       setTransactions([]);
       setMessage("Failed to load transactions.");
@@ -370,23 +427,12 @@ function OwnerFlow({ token, username, onBack }) {
     }
   };
 
-  const handleCustomerClick = (customerId) => {
-    setSelectedCustomer(customerId);
-    fetchTransactions(customerId);
-  };
-
-  const handleViewAllClick = () => {
-    setSelectedCustomer(null);
-    fetchTransactions();
-  };
-
   return (
     <div className="page">
-      <h2>Business Owner Flow</h2>
+      <h2>Business Owner Dashboard</h2>
       <button className="red" onClick={onBack}>
         Logout
       </button>
-
       <h3>Customers</h3>
       {loadingCustomers ? (
         <p>Loading customers...</p>
@@ -394,148 +440,166 @@ function OwnerFlow({ token, username, onBack }) {
         <p>No customers found.</p>
       ) : (
         <ul>
-          {customers.map(({ customerId, balance }) => (
-            <li
-              key={customerId}
-              style={{
-                cursor: "pointer",
-                fontWeight: selectedCustomer === customerId ? "bold" : "normal",
-              }}
-              onClick={() => handleCustomerClick(customerId)}
-            >
-              {customerId} - Credit Balance: ₹{balance.toFixed(2)}
+          {customers.map(({ customerId, customerName, customerPhoto, balance }) => (
+            <li key={customerId}>
+              <button
+                className="blue"
+                onClick={() => {
+                  setSelectedCustomer(customerId);
+                  fetchTransactions(customerId);
+                }}
+              >
+                {customerName}{" "}
+                {customerPhoto && (
+                  <img
+                    src={customerPhoto}
+                    alt="Customer"
+                    style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                  />
+                )}{" "}
+                (Balance: ₹{balance.toFixed(2)})
+              </button>
             </li>
           ))}
         </ul>
       )}
-
-      <button onClick={handleViewAllClick} style={{ marginTop: "1rem" }}>
-        View All Transactions
-      </button>
-
-      <h3 style={{ marginTop: "2rem" }}>
-        Transactions {selectedCustomer ? `for ${selectedCustomer}` : "(All)"}
-      </h3>
-      {loadingTransactions ? (
-        <p>Loading transactions...</p>
-      ) : message ? (
-        <p>{message}</p>
-      ) : transactions.length === 0 ? (
-        <p>No transactions found.</p>
-      ) : (
-        <ul>
-          {transactions.map((tx) => (
-            <li key={tx._id} style={{ marginBottom: "1rem" }}>
-              <strong>{tx.type}</strong> - Amount: ₹{tx.amount} -{" "}
-              {new Date(tx.timestamp).toLocaleString()}
-              <br />
-              Description: {tx.description || "N/A"}
-            </li>
-          ))}
-        </ul>
+      {selectedCustomer && (
+        <>
+          <h3>Transactions for {selectedCustomer}</h3>
+          {loadingTransactions ? (
+            <p>Loading transactions...</p>
+          ) : transactions.length === 0 ? (
+            <p>No transactions found.</p>
+          ) : (
+            <ul>
+              {transactions.map((tx) => (
+                <li key={tx._id}>
+                  [{new Date(tx.timestamp).toLocaleString()}] {tx.type} - ₹
+                  {tx.amount.toFixed(2)} {tx.description && `- ${tx.description}`}
+                  <br />
+                  <strong>Customer:</strong> {tx.customerName}{" "}
+                  {tx.customerPhoto && (
+                    <img
+                      src={tx.customerPhoto}
+                      alt="Customer"
+                      style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                    />
+                  )}
+                  <br />
+                  <strong>Business:</strong> {tx.businessName}{" "}
+                  {tx.businessPhoto && (
+                    <img
+                      src={tx.businessPhoto}
+                      alt="Business"
+                      style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                    />
+                  )}
+                  {tx.photo && (
+                    <div>
+                      <img
+                        src={tx.photo}
+                        alt="Bill"
+                        style={{ maxWidth: "100px", marginTop: "5px" }}
+                      />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <button className="red" onClick={() => setSelectedCustomer(null)}>
+            Back to Customers
+          </button>
+        </>
       )}
+      {message && <p>{message}</p>}
     </div>
   );
 }
 
 function App() {
   const [page, setPage] = useState("welcome");
+  const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      if (parsedUser.userType === "customer") {
-        setPage("selectBusiness");
-      } else {
-        setPage("ownerFlow");
-      }
-    }
-  }, []);
-
   const handleLogin = (data) => {
-    const userData = {
-      token: data.token,
-      username: data.user.username,
-      userType: data.user.userType,
-    };
-    setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
-    if (userData.userType === "customer") {
-      setPage("selectBusiness");
-    } else {
-      setPage("ownerFlow");
-    }
+    setToken(data.token);
+    setUser(data.user);
+    setPage("dashboard");
   };
 
   const handleLogout = () => {
+    setToken(null);
     setUser(null);
     setSelectedBusiness(null);
     setPage("welcome");
-    localStorage.removeItem("user");
   };
 
-  return (
-    <div className="App">
-      {page === "welcome" && (
-        <>
-          <h1>Welcome to Credit Manager</h1>
-          <button className="violet" onClick={() => setPage("login")}>
-            Login
-          </button>
-          <button className="blue" onClick={() => setPage("signup")}>
-            Sign Up
-          </button>
-        </>
-      )}
+  if (page === "welcome") {
+    return (
+      <div className="page">
+        <h1>Credit Ledger</h1>
+        <button className="violet" onClick={() => setPage("login")}>
+          Login
+        </button>
+        <button className="blue" onClick={() => setPage("signup")}>
+          Sign Up
+        </button>
+      </div>
+    );
+  }
 
-      {page === "signup" && (
-        <SignUp
-          onSignUpSuccess={() => setPage("login")}
-          onBack={() => setPage("welcome")}
-        />
-      )}
+  if (page === "signup") {
+    return (
+      <SignUp
+        onSignUpSuccess={() => setPage("login")}
+        onBack={() => setPage("welcome")}
+      />
+    );
+  }
 
-      {page === "login" && (
-        <Login
-          onLogin={handleLogin}
-          onSignUpClick={() => setPage("signup")}
-          onBack={() => setPage("welcome")}
-        />
-      )}
+  if (page === "login") {
+    return (
+      <Login
+        onLogin={handleLogin}
+        onSignUpClick={() => setPage("signup")}
+        onBack={() => setPage("welcome")}
+      />
+    );
+  }
 
-      {page === "selectBusiness" && user && (
-        <SelectBusiness
-          token={user.token}
-          onSelect={(business) => {
-            setSelectedBusiness(business);
-            setPage("customerFlow");
-          }}
-          onBack={handleLogout}
-        />
-      )}
-
-      {page === "customerFlow" && user && selectedBusiness && (
+  if (page === "dashboard") {
+    if (user.userType === "customer") {
+      if (!selectedBusiness) {
+        return (
+          <SelectBusiness
+            token={token}
+            onSelect={(businessPhone) => setSelectedBusiness(businessPhone)}
+            onBack={handleLogout}
+          />
+        );
+      }
+      return (
         <CustomerFlow
-          token={user.token}
-          customerId={user.username}
+          token={token}
+          customerId={user.phoneNumber}
           businessId={selectedBusiness}
-          onBack={() => setPage("selectBusiness")}
+          onBack={() => setSelectedBusiness(null)}
         />
-      )}
-
-      {page === "ownerFlow" && user && (
+      );
+    } else if (user.userType === "owner") {
+      return (
         <OwnerFlow
-          token={user.token}
-          username={user.username}
+          token={token}
+          phoneNumber={user.phoneNumber}
           onBack={handleLogout}
         />
-      )}
-    </div>
-  );
+      );
+    }
+  }
+
+  return <p>Loading...</p>;
 }
 
 export default App;

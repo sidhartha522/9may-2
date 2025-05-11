@@ -1,207 +1,195 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-require("dotenv").config();
+const bcrypt = require("bcryptjs");
 
 const app = express();
-
-// Configure CORS to allow your frontend origin and necessary headers/methods
-app.use(cors({
-  origin: "http://localhost:3000", // Replace with your frontend URL if different
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
-
+app.use(cors());
 app.use(express.json());
 
-const JWT_SECRET = process.env.JWT_SECRET || "your_very_strong_jwt_secret_here_change_this";
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/creditledger";
+const JWT_SECRET = "your_jwt_secret_here"; // Use env var in production
 
-// Connect to MongoDB
-mongoose.connect(MONGO_URI);
+// In-memory user store: phoneNumber -> user object
+// user object: { phoneNumber, passwordHash, userType, name, photo }
+const users = new Map();
 
-mongoose.connection.on("connected", () => {
-  console.log("MongoDB connected");
-});
-mongoose.connection.on("error", (err) => {
-  console.error("MongoDB connection error:", err);
-});
+// In-memory transactions store: array of transaction objects
+// transaction: { _id, businessId, customerId, type, amount, description, photo, timestamp }
+const transactions = [];
+let transactionIdCounter = 1;
 
-// Schemas
-const userSchema = new mongoose.Schema({
-  username: { type: String, unique: true },
-  passwordHash: String,
-  userType: { type: String, enum: ["customer", "owner"] },
-});
+// Middleware to authenticate JWT token and set req.user
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader) return res.status(401).json({ error: "Missing auth header" });
+  const token = authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Missing token" });
 
-const transactionSchema = new mongoose.Schema({
-  businessId: String,
-  customerId: String,
-  type: String,
-  amount: Number,
-  description: String,
-  photo: String, // base64 string
-  timestamp: { type: Date, default: Date.now },
-});
-
-const User = mongoose.model("User", userSchema);
-const Transaction = mongoose.model("Transaction", transactionSchema);
-
-// Middleware to authenticate JWT token
-const authMiddleware = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: "Invalid token" });
+    req.user = user;
     next();
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
-  }
-};
+  });
+}
 
-// Routes
-
-// Sign up
+// Signup endpoint
 app.post("/api/signup", async (req, res) => {
-  try {
-    const { username, password, userType } = req.body;
-    if (!username || !password || !userType) {
-      return res.status(400).json({ error: "Missing fields" });
-    }
-    const existingUser = await User.findOne({ username });
-    if (existingUser) {
-      return res.status(400).json({ error: "Username already exists" });
-    }
-    const passwordHash = await bcrypt.hash(password, 10);
-    const user = new User({ username, passwordHash, userType });
-    await user.save();
-    res.json({ message: "User created" });
-  } catch (error) {
-    console.error("Signup error:", error);
-    res.status(500).json({ error: "Internal server error" });
+  const { phoneNumber, password, userType, name, photo } = req.body;
+  if (!phoneNumber || !password || !userType || !name) {
+    return res.status(400).json({ error: "Missing required fields" });
   }
+  if (users.has(phoneNumber)) {
+    return res.status(400).json({ error: "User already exists" });
+  }
+  if (userType !== "customer" && userType !== "owner") {
+    return res.status(400).json({ error: "Invalid userType" });
+  }
+  const passwordHash = await bcrypt.hash(password, 10);
+  users.set(phoneNumber, { phoneNumber, passwordHash, userType, name, photo: photo || null });
+  res.json({ message: "User registered successfully" });
 });
 
-// Login
+// Login endpoint
 app.post("/api/login", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const user = await User.findOne({ username });
-    if (!user) return res.status(400).json({ error: "Invalid credentials" });
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.status(400).json({ error: "Invalid credentials" });
-    const token = jwt.sign(
-      { username: user.username, userType: user.userType },
-      JWT_SECRET,
-      { expiresIn: "1d" }
-    );
-    res.json({ token, user: { username: user.username, userType: user.userType } });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ error: "Internal server error" });
+  const { phoneNumber, password } = req.body;
+  if (!phoneNumber || !password) {
+    return res.status(400).json({ error: "Missing phoneNumber or password" });
   }
+  const user = users.get(phoneNumber);
+  if (!user) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+  const token = jwt.sign(
+    { phoneNumber: user.phoneNumber, userType: user.userType, name: user.name, photo: user.photo },
+    JWT_SECRET,
+    { expiresIn: "12h" }
+  );
+  res.json({ token, user: { phoneNumber: user.phoneNumber, userType: user.userType, name: user.name, photo: user.photo } });
 });
 
-// Get business owners (for customers to select)
-app.get("/api/businesses", authMiddleware, async (req, res) => {
-  try {
-    const owners = await User.find({ userType: "owner" }, "username");
-    res.json(owners);
-  } catch (error) {
-    console.error("Get businesses error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Get customers for a business owner (by username)
-app.get("/api/customers/:username", authMiddleware, async (req, res) => {
-  try {
-    const { username } = req.params;
-
-    // Find distinct customerIds who have transactions with this business owner
-    const customerIds = await Transaction.distinct("customerId", { businessId: username });
-
-    // For each customerId, calculate their current balance with this business owner
-    const customers = await Promise.all(
-      customerIds.map(async (customerId) => {
-        const transactions = await Transaction.find({ businessId: username, customerId });
-        let balance = 0;
-        transactions.forEach((tx) => {
-          if (tx.type === "Credit Taken") balance += tx.amount;
-          else if (tx.type === "Payment Made") balance -= tx.amount;
-        });
-        if (balance < 0) balance = 0;
-        return { customerId, balance };
-      })
-    );
-
-    res.json(customers);
-  } catch (error) {
-    console.error("Get customers error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Get customer credit balance for a business
-app.get("/api/credit/:businessId/:customerId", authMiddleware, async (req, res) => {
-  try {
-    const { businessId, customerId } = req.params;
-    const transactions = await Transaction.find({ businessId, customerId });
-    let balance = 0;
-    transactions.forEach((tx) => {
-      if (tx.type === "Credit Taken") balance += tx.amount;
-      else if (tx.type === "Payment Made") balance -= tx.amount;
-    });
-    if (balance < 0) balance = 0;
-    res.json({ balance });
-  } catch (error) {
-    console.error("Get credit balance error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Add transaction
-app.post("/api/transaction", authMiddleware, async (req, res) => {
-  try {
-    const { businessId, customerId, type, amount, description, photo } = req.body;
-    if (!businessId || !customerId || !type || !amount) {
-      return res.status(400).json({ error: "Missing fields" });
+// Get all business owners (for customers to select)
+app.get("/api/businesses", authenticateToken, (req, res) => {
+  const owners = [];
+  for (const user of users.values()) {
+    if (user.userType === "owner") {
+      owners.push({ phoneNumber: user.phoneNumber, name: user.name, photo: user.photo });
     }
-    const tx = new Transaction({
-      businessId,
-      customerId,
-      type,
-      amount,
-      description,
-      photo,
-    });
-    await tx.save();
-    res.json({ message: "Transaction recorded" });
-  } catch (error) {
-    console.error("Add transaction error:", error);
-    res.status(500).json({ error: "Internal server error" });
   }
+  res.json(owners);
 });
 
-// Get transactions for business and optionally customer
-app.get("/api/transactions/:businessId", authMiddleware, async (req, res) => {
-  try {
-    const { businessId } = req.params;
-    const { customerId } = req.query;
-    let filter = { businessId };
-    if (customerId) filter.customerId = customerId;
-    const transactions = await Transaction.find(filter).sort({ timestamp: -1 });
-    res.json(transactions);
-  } catch (error) {
-    console.error("Get transactions error:", error);
-    res.status(500).json({ error: "Internal server error" });
+// Get customers for a business owner with balances
+app.get("/api/customers/:businessId", authenticateToken, (req, res) => {
+  const businessId = req.params.businessId;
+  if (req.user.phoneNumber !== businessId) {
+    return res.status(403).json({ error: "Unauthorized" });
   }
+  // Find all customers who have transactions with this business
+  const customerMap = new Map();
+  for (const tx of transactions) {
+    if (tx.businessId === businessId) {
+      if (!customerMap.has(tx.customerId)) {
+        const customerUser = users.get(tx.customerId);
+        customerMap.set(tx.customerId, {
+          customerId: tx.customerId,
+          customerName: customerUser ? customerUser.name : tx.customerId,
+          customerPhoto: customerUser ? customerUser.photo : null,
+          balance: 0,
+        });
+      }
+      const cust = customerMap.get(tx.customerId);
+      if (tx.type === "Credit Taken") {
+        cust.balance += tx.amount;
+      } else if (tx.type === "Payment Made") {
+        cust.balance -= tx.amount;
+      }
+    }
+  }
+  res.json(Array.from(customerMap.values()));
 });
 
-const PORT = process.env.PORT || 4000;
+// Get transactions for a business, optionally filtered by customerId
+app.get("/api/transactions/:businessId", authenticateToken, (req, res) => {
+  const businessId = req.params.businessId;
+  if (req.user.phoneNumber !== businessId && req.user.userType !== "customer") {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  const customerId = req.query.customerId;
+  let filtered = transactions.filter((tx) => tx.businessId === businessId);
+  if (customerId) {
+    filtered = filtered.filter((tx) => tx.customerId === customerId);
+  }
+  // Enrich transactions with names and photos
+  const enriched = filtered.map((tx) => {
+    const custUser = users.get(tx.customerId);
+    const busUser = users.get(tx.businessId);
+    return {
+      ...tx,
+      customerName: custUser ? custUser.name : tx.customerId,
+      customerPhoto: custUser ? custUser.photo : null,
+      businessName: busUser ? busUser.name : tx.businessId,
+      businessPhoto: busUser ? busUser.photo : null,
+    };
+  });
+  res.json(enriched);
+});
+
+// Get credit balance for a customer-business pair
+app.get("/api/credit/:businessId/:customerId", authenticateToken, (req, res) => {
+  const { businessId, customerId } = req.params;
+  if (
+    req.user.phoneNumber !== businessId &&
+    req.user.phoneNumber !== customerId
+  ) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  let balance = 0;
+  for (const tx of transactions) {
+    if (tx.businessId === businessId && tx.customerId === customerId) {
+      if (tx.type === "Credit Taken") {
+        balance += tx.amount;
+      } else if (tx.type === "Payment Made") {
+        balance -= tx.amount;
+      }
+    }
+  }
+  res.json({ balance });
+});
+
+// Add a transaction
+app.post("/api/transaction", authenticateToken, (req, res) => {
+  const { businessId, customerId, type, amount, description, photo } = req.body;
+  if (!businessId || !customerId || !type || !amount) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+  if (
+    req.user.phoneNumber !== businessId &&
+    req.user.phoneNumber !== customerId
+  ) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  if (type !== "Credit Taken" && type !== "Payment Made") {
+    return res.status(400).json({ error: "Invalid transaction type" });
+  }
+  const tx = {
+    _id: (transactionIdCounter++).toString(),
+    businessId,
+    customerId,
+    type,
+    amount: Number(amount),
+    description: description || "",
+    photo: photo || null,
+    timestamp: Date.now(),
+  };
+  transactions.push(tx);
+  res.json({ message: "Transaction added", transaction: tx });
+});
+
+const PORT = 4000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
