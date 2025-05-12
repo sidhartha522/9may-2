@@ -565,7 +565,6 @@ function TransactionsHistoryPage({ token, ownerPhone, onBack }) {
     </div>
   );
 }
-
 function OwnerFlow({ token, phoneNumber, onSelectCustomer, onShowHistory, onBack }) {
   const [customers, setCustomers] = useState([]);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
@@ -590,12 +589,12 @@ function OwnerFlow({ token, phoneNumber, onSelectCustomer, onShowHistory, onBack
 
   return (
     <div className="page">
-      <h2>Business Owner Dashboard</h2>
+      <h2>Owner Dashboard</h2>
       <button className="red" onClick={onBack}>
         Logout
       </button>
-      <button className="green" onClick={onShowHistory} style={{ marginLeft: "10px" }}>
-        History
+      <button className="blue" onClick={onShowHistory}>
+        Show All Transactions History
       </button>
       <h3>Customers</h3>
       {loadingCustomers ? (
@@ -603,22 +602,32 @@ function OwnerFlow({ token, phoneNumber, onSelectCustomer, onShowHistory, onBack
       ) : customers.length === 0 ? (
         <p>No customers found.</p>
       ) : (
-        <ul>
-          {customers.map(({ customerId, customerName, customerPhoto, balance }) => (
-            <li key={customerId}>
+        <ul style={{ listStyle: "none", padding: 0 }}>
+          {customers.map((customer) => (
+            <li key={customer.phoneNumber} style={{ marginBottom: "10px" }}>
               <button
                 className="blue"
-                onClick={() => onSelectCustomer(customerId)}
+                onClick={() => onSelectCustomer(customer.phoneNumber)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  cursor: "pointer",
+                  padding: "8px 12px",
+                  borderRadius: "5px",
+                  border: "none",
+                  color: "white",
+                  backgroundColor: "#4B0082",
+                }}
               >
-                {customerName}{" "}
-                {customerPhoto && (
+                {customer.name}
+                {customer.photo && (
                   <img
-                    src={customerPhoto}
+                    src={customer.photo}
                     alt="Customer"
-                    style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                    style={{ maxWidth: "50px", borderRadius: "50%" }}
                   />
-                )}{" "}
-                (Balance: ₹{balance.toFixed(2)})
+                )}
               </button>
             </li>
           ))}
@@ -629,71 +638,80 @@ function OwnerFlow({ token, phoneNumber, onSelectCustomer, onShowHistory, onBack
   );
 }
 
+function Dashboard({
+  token,
+  user,
+  onLogout,
+  onSelectBusiness,
+  onSelectCustomerForTransactions,
+  onShowHistory,
+  selectedBusiness,
+  selectedCustomerForTransactions,
+  showHistory,
+  setShowHistory,
+}) {
+  if (user.userType === "customer") {
+    if (!selectedBusiness) {
+      return (
+        <SelectBusiness
+          token={token}
+          onSelect={onSelectBusiness}
+          onBack={onLogout}
+        />
+      );
+    }
+    return (
+      <CustomerFlow
+        token={token}
+        customerId={user.phoneNumber}
+        businessId={selectedBusiness}
+        onBack={() => onSelectBusiness(null)}
+      />
+    );
+  } else if (user.userType === "owner") {
+    if (showHistory) {
+      return (
+        <TransactionsHistoryPage
+          token={token}
+          ownerPhone={user.phoneNumber}
+          onBack={() => setShowHistory(false)}
+        />
+      );
+    }
+    if (selectedCustomerForTransactions) {
+      return (
+        <CustomerTransactionsPage
+          token={token}
+          ownerPhone={user.phoneNumber}
+          customerId={selectedCustomerForTransactions}
+          onBack={() => onSelectCustomerForTransactions(null)}
+        />
+      );
+    }
+    return (
+      <OwnerFlow
+        token={token}
+        phoneNumber={user.phoneNumber}
+        onSelectCustomer={onSelectCustomerForTransactions}
+        onShowHistory={() => setShowHistory(true)}
+        onBack={onLogout}
+      />
+    );
+  }
+  return <p>Unknown user type</p>;
+}
+
 function App() {
   const [page, setPage] = useState("welcome");
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
   const [user, setUser] = useState(() => {
-    const userData = localStorage.getItem('user');
+    const userData = localStorage.getItem("user");
     return userData ? JSON.parse(userData) : null;
   });
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [selectedCustomerForTransactions, setSelectedCustomerForTransactions] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Check authentication state on initial load
-  useEffect(() => {
-    const checkAuth = async () => {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken && !token) {
-        try {
-          // Verify the token with your backend
-          const response = await axios.get(`${API_BASE}/verify-token`, {
-            headers: { Authorization: `Bearer ${storedToken}` }
-          });
-          
-          if (response.data.valid) {
-            setToken(storedToken);
-            const userData = JSON.parse(localStorage.getItem('user'));
-            setUser(userData);
-            setPage("dashboard");
-          } else {
-            // Token is invalid, clear storage
-            handleLogout();
-          }
-        } catch (error) {
-          console.error("Token verification failed:", error);
-          handleLogout();
-        }
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  const handleLogin = (data) => {
-    // Store token and user data in localStorage
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    
-    setToken(data.token);
-    setUser(data.user);
-    setPage("dashboard");
-  };
-
-  const handleLogout = () => {
-    // Clear localStorage on logout
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    setToken(null);
-    setUser(null);
-    setSelectedBusiness(null);
-    setSelectedCustomerForTransactions(null);
-    setShowHistory(false);
-    setPage("welcome");
-  };
-
-  // Set initial page based on auth state
   useEffect(() => {
     if (token && user) {
       setPage("dashboard");
@@ -702,10 +720,29 @@ function App() {
     }
   }, [token, user]);
 
+  const handleLogin = (data) => {
+    setToken(data.token);
+    setUser(data.user);
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    setPage("dashboard");
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    setUser(null);
+    setSelectedBusiness(null);
+    setSelectedCustomerForTransactions(null);
+    setShowHistory(false);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setPage("welcome");
+  };
+
   if (page === "welcome") {
     return (
       <div className="page">
-        <h1>Credit Ledger</h1>
+        <h1>Welcome to Credit Manager</h1>
         <button className="violet" onClick={() => setPage("login")}>
           Login
         </button>
@@ -736,57 +773,159 @@ function App() {
   }
 
   if (page === "dashboard") {
-    if (user.userType === "customer") {
-      if (!selectedBusiness) {
-        return (
-          <SelectBusiness
-            token={token}
-            onSelect={(businessPhone) => setSelectedBusiness(businessPhone)}
-            onBack={handleLogout}
-          />
-        );
-      }
-      return (
-        <CustomerFlow
-          token={token}
-          customerId={user.phoneNumber}
-          businessId={selectedBusiness}
-          onBack={() => setSelectedBusiness(null)}
-        />
-      );
-    } else if (user.userType === "owner") {
-      if (showHistory) {
-        return (
-          <TransactionsHistoryPage
-            token={token}
-            ownerPhone={user.phoneNumber}
-            onBack={() => setShowHistory(false)}
-          />
-        );
-      }
-      if (selectedCustomerForTransactions) {
-        return (
-          <CustomerTransactionsPage
-            token={token}
-            ownerPhone={user.phoneNumber}
-            customerId={selectedCustomerForTransactions}
-            onBack={() => setSelectedCustomerForTransactions(null)}
-          />
-        );
-      }
-      return (
-        <OwnerFlow
-          token={token}
-          phoneNumber={user.phoneNumber}
-          onSelectCustomer={(customerId) => setSelectedCustomerForTransactions(customerId)}
-          onShowHistory={() => setShowHistory(true)}
-          onBack={handleLogout}
-        />
-      );
-    }
+    return (
+      <Dashboard
+        token={token}
+        user={user}
+        onLogout={handleLogout}
+        onSelectBusiness={setSelectedBusiness}
+        onSelectCustomerForTransactions={setSelectedCustomerForTransactions}
+        onShowHistory={() => setShowHistory(true)}
+        selectedBusiness={selectedBusiness}
+        selectedCustomerForTransactions={selectedCustomerForTransactions}
+        showHistory={showHistory}
+        setShowHistory={setShowHistory}
+      />
+    );
   }
 
-  return <p>Loading...</p>;
+  return <p>Invalid page</p>;
 }
 
 export default App;
+
+this is my frontend app.js code 
+
+
+and this is my frontend app.css code 
+
+/* General Reset and Layout */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #f4f5f7;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.App {
+  max-width: 480px;
+  margin: 50px auto;
+  padding: 30px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+/* Page sections */
+.page {
+  margin-top: 20px;
+}
+
+/* Headings */
+h1, h2, h3 {
+  margin-bottom: 16px;
+  color: #1f2937;
+}
+
+/* Inputs and Select */
+input, select {
+  padding: 12px 14px;
+  margin: 8px 0;
+  width: 100%;
+  max-width: 320px;
+  font-size: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-sizing: border-box;
+  transition: border 0.2s ease-in-out;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #7b5cff;
+}
+
+/* Buttons */
+button {
+  margin: 8px;
+  padding: 12px 24px;
+  font-size: 16px;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background-color 0.2s ease-in-out;
+}
+
+button.violet {
+  background-color: #7b5cff;
+}
+
+button.violet:hover {
+  background-color: #6749e8;
+}
+
+button.blue {
+  background-color: #3b82f6;
+}
+
+button.blue:hover {
+  background-color: #2563eb;
+}
+
+button.green {
+  background-color: #22c55e;
+}
+
+button.green:hover {
+  background-color: #16a34a;
+}
+
+button.red {
+  background-color: #ef4444;
+}
+
+button.red:hover {
+  background-color: #dc2626;
+}
+
+/* Lists */
+ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 16px;
+}
+
+li {
+  background-color: #f9fafb;
+  margin: 8px 0;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: left;
+  color: #374151;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+}
+
+/* Error Message */
+.error-message {
+  color: #ef4444;
+  margin-top: 10px;
+}
+
+/* Transaction Images */
+img {
+  margin-top: 8px;
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* File Input */
+input[type="file"] {
+  border: none;
+  margin-top: 10px;
+}
+
+i was fixing some other issue and somehow customers name disapeared on business home page only come colour is visible name is not visible and they cannot be clicked fix that they should be visible and when we click on them customer history should be shown in other page and also write css for mobile website and the interface should be like khatabook and phonepe

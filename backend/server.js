@@ -126,7 +126,6 @@ app.get("/api/customers/:businessId", authenticateToken, async (req, res) => {
     return res.status(403).json({ error: "Unauthorized" });
   }
   try {
-    // Aggregate transactions to calculate balances per customer
     const agg = await Transaction.aggregate([
       { $match: { businessId } },
       {
@@ -146,7 +145,6 @@ app.get("/api/customers/:businessId", authenticateToken, async (req, res) => {
       },
     ]);
 
-    // Fetch customer details and combine with balances
     const customers = await Promise.all(
       agg.map(async (item) => {
         const customerUser = await User.findOne({ phoneNumber: item._id });
@@ -179,7 +177,6 @@ app.get("/api/transactions/:businessId", authenticateToken, async (req, res) => 
     }
     const txs = await Transaction.find(filter).sort({ timestamp: -1 }).lean();
 
-    // Enrich transactions with names and photos
     const enriched = await Promise.all(
       txs.map(async (tx) => {
         const custUser = await User.findOne({ phoneNumber: tx.customerId });
@@ -238,7 +235,7 @@ app.get("/api/credit/:businessId/:customerId", authenticateToken, async (req, re
 // Add a transaction
 app.post("/api/transaction", authenticateToken, async (req, res) => {
   const { businessId, customerId, type, amount, description, photo } = req.body;
-  if (!businessId || !customerId || !type ||!amount) {
+  if (!businessId || !customerId || !type || !amount) {
     return res.status(400).json({ error: "Missing required fields" });
   }
   if (
@@ -264,6 +261,11 @@ app.post("/api/transaction", authenticateToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
+});
+
+// Token verification endpoint
+  app.get("/api/verify-token", authenticateToken, (req, res) => {
+  res.json({ valid: true, user: req.user });
 });
 
 const PORT = 4000;

@@ -1,68 +1,69 @@
-/* General Reset and Layout */
+/* App.css */
 body {
   margin: 0;
-  padding: 0;
-  background-color: #f4f5f7;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #f9f9f9;
+  color: #333;
 }
 
-.App {
+.page {
   max-width: 480px;
-  margin: 50px auto;
-  padding: 30px;
-  background-color: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  margin: 0 auto;
+  padding: 1rem;
+  background: white;
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1, h2, h3 {
+  color: #4b0082;
+  margin-bottom: 1rem;
   text-align: center;
 }
 
-/* Page sections */
-.page {
-  margin-top: 20px;
-}
-
-/* Headings */
-h1, h2, h3 {
-  margin-bottom: 16px;
-  color: #1f2937;
-}
-
-/* Inputs and Select */
-input, select {
-  padding: 12px 14px;
-  margin: 8px 0;
+input[type="text"],
+input[type="password"],
+input[type="tel"],
+input[type="number"],
+select {
   width: 100%;
-  max-width: 320px;
-  font-size: 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0.4rem 0 1rem 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
   box-sizing: border-box;
-  transition: border 0.2s ease-in-out;
 }
 
-input:focus, select:focus {
-  outline: none;
-  border-color: #7b5cff;
-}
-
-/* Buttons */
 button {
-  margin: 8px;
-  padding: 12px 24px;
-  font-size: 16px;
-  border: none;
-  color: white;
   cursor: pointer;
-  border-radius: 10px;
-  transition: background-color 0.2s ease-in-out;
+  border: none;
+  border-radius: 6px;
+  padding: 0.8rem 1.2rem;
+  font-size: 1rem;
+  margin: 0.3rem;
+  min-width: 120px;
+  transition: background-color 0.3s ease;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button:focus {
+  outline: 3px solid #a29bfe;
+  outline-offset: 2px;
 }
 
 button.violet {
-  background-color: #7b5cff;
+  background-color: #6a0dad;
 }
 
 button.violet:hover {
-  background-color: #6749e8;
+  background-color: #7e22ce;
 }
 
 button.blue {
@@ -89,40 +90,113 @@ button.red:hover {
   background-color: #dc2626;
 }
 
-/* Lists */
-ul {
+.message {
+  margin-top: 1rem;
+  color: #4b0082;
+  font-weight: 600;
+  text-align: center;
+}
+
+.error-message {
+  margin-top: 1rem;
+  color: #dc2626;
+  font-weight: 600;
+  text-align: center;
+}
+
+.profile-photo,
+.transaction-photo {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  object-fit: contain;
+  box-shadow: 0 0 8px rgba(106, 13, 173, 0.3);
+}
+
+.transaction-photo-small,
+.small-photo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+  box-shadow: 0 0 6px rgba(106, 13, 173, 0.3);
+}
+
+.business-list,
+.customer-list,
+.transaction-list {
   list-style: none;
   padding: 0;
-  margin-top: 16px;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
 }
 
-li {
-  background-color: #f9fafb;
-  margin: 8px 0;
-  padding: 12px;
+.business-button,
+.customer-button {
+  width: 100%;
+  background: #f3f4f6;
+  color: #4b0082;
+  font-weight: 600;
+  padding: 0.8rem 1rem;
   border-radius: 8px;
-  text-align: left;
-  color: #374151;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  cursor: pointer;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
-/* Error Message */
-.error-message {
-  color: #ef4444;
-  margin-top: 10px;
+.business-button:hover,
+.customer-button:hover {
+  background-color: #e0d7f7;
+  border-color: #6a0dad;
 }
 
-/* Transaction Images */
-img {
-  margin-top: 8px;
-  max-width: 100%;
+.transaction-item {
+  background: #fafafa;
+  border: 1px solid #ddd;
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.8rem;
+  font-size: 0.9rem;
+  color: #444;
 }
 
-/* File Input */
-input[type="file"] {
-  border: none;
-  margin-top: 10px;
+.sort-container {
+  margin: 1rem 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sort-container label {
+  margin-right: 0.5rem;
+  font-weight: 600;
+  color: #4b0082;
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 1rem 0.5rem;
+  }
+
+  button {
+    min-width: 100px;
+    font-size: 0.9rem;
+    padding: 0.6rem 1rem;
+  }
+
+  input[type="text"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="number"],
+  select {
+    font-size: 0.9rem;
+  }
 }
