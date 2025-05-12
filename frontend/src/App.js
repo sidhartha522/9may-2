@@ -295,54 +295,10 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
           <button className="green" onClick={() => setAction("pay")}>
             Pay Back
           </button>
-          <button className="red" onClick={onBack}>
-            Back
-          </button>
-
-          <h3>Transaction History</h3>
-          {transactions.length === 0 ? (
-            <p>No transactions yet.</p>
-          ) : (
-            <ul>
-              {transactions.map((tx) => (
-                <li key={tx._id}>
-                  [{new Date(tx.timestamp).toLocaleString()}] {tx.type} - ₹
-                  {tx.amount.toFixed(2)} {tx.description && `- ${tx.description}`}
-                  <br />
-                  <strong>Customer:</strong> {tx.customerName}{" "}
-                  {tx.customerPhoto && (
-                    <img
-                      src={tx.customerPhoto}
-                      alt="Customer"
-                      style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
-                    />
-                  )}
-                  <br />
-                  <strong>Business:</strong> {tx.businessName}{" "}
-                  {tx.businessPhoto && (
-                    <img
-                      src={tx.businessPhoto}
-                      alt="Business"
-                      style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
-                    />
-                  )}
-                  {tx.photo && (
-                    <div>
-                      <img
-                        src={tx.photo}
-                        alt="Bill"
-                        style={{ maxWidth: "100px", marginTop: "5px" }}
-                      />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
         </>
       ) : (
         <>
-          <p>Action: {action === "take" ? "Take Credit" : "Pay Back"}</p>
+          <h3>{action === "take" ? "Take Credit" : "Pay Back"}</h3>
           <input
             type="number"
             placeholder="Amount"
@@ -354,7 +310,7 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
           <br />
           <input
             type="text"
-            placeholder="Description(optional)"
+            placeholder="Description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -379,16 +335,240 @@ function CustomerFlow({ token, customerId, businessId, onBack }) {
           {message && <p>{message}</p>}
         </>
       )}
+      <h3>Transaction History</h3>
+      {transactions.length === 0 ? (
+        <p>No transactions yet.</p>
+      ) : (
+        <ul>
+          {transactions.map((tx) => (
+            <li key={tx._id} style={{ marginBottom: "15px" }}>
+              <strong>Date:</strong> {new Date(tx.timestamp).toLocaleString()}
+              <br />
+              <strong>Type:</strong> {tx.type}
+              <br />
+              <strong>Amount:</strong> ₹{tx.amount.toFixed(2)}
+              <br />
+              {tx.description && (
+                <>
+                  <strong>Description:</strong> {tx.description}
+                  <br />
+                </>
+              )}
+              {tx.photo && (
+                <div>
+                  <img
+                    src={tx.photo}
+                    alt="Bill"
+                    style={{ maxWidth: "100px", marginTop: "5px" }}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <button className="red" onClick={onBack}>
+        Back
+      </button>
     </div>
   );
 }
 
-function OwnerFlow({ token, phoneNumber, onBack }) {
-  const [customers, setCustomers] = useState([]);
+function CustomerTransactionsPage({ token, ownerPhone, customerId, onBack }) {
   const [transactions, setTransactions] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      setLoading(true);
+      try {
+        const url = `${API_BASE}/transactions/${encodeURIComponent(ownerPhone)}`;
+        const res = await axios.get(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { customerId },
+        });
+        setTransactions(res.data);
+      } catch {
+        setTransactions([]);
+        setMessage("Failed to load transactions.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTransactions();
+  }, [token, ownerPhone, customerId]);
+
+  return (
+    <div className="page">
+      <h2>Transactions with Customer</h2>
+      <button className="red" onClick={onBack}>
+        Back to Dashboard
+      </button>
+      {loading ? (
+        <p>Loading transactions...</p>
+      ) : transactions.length === 0 ? (
+        <p>No transactions found.</p>
+      ) : (
+        <ul>
+          {transactions.map((tx) => (
+            <li key={tx._id} style={{ marginBottom: "15px" }}>
+              <strong>Date:</strong> {new Date(tx.timestamp).toLocaleString()}
+              <br />
+              <strong>Type:</strong> {tx.type}
+              <br />
+              <strong>Amount:</strong> ₹{tx.amount.toFixed(2)}
+              <br />
+              {tx.description && (
+                <>
+                  <strong>Description:</strong> {tx.description}
+                  <br />
+                </>
+              )}
+              {tx.photo && (
+                <div>
+                  <img
+                    src={tx.photo}
+                    alt="Bill"
+                    style={{ maxWidth: "100px", marginTop: "5px" }}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {message && <p>{message}</p>}
+    </div>
+  );
+}
+
+function TransactionsHistoryPage({ token, ownerPhone, onBack }) {
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [sortBy, setSortBy] = useState("latest");
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      setLoading(true);
+      try {
+        const url = `${API_BASE}/transactions/${encodeURIComponent(ownerPhone)}`;
+        const res = await axios.get(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setTransactions(res.data);
+      } catch {
+        setTransactions([]);
+        setMessage("Failed to load transactions.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTransactions();
+  }, [token, ownerPhone]);
+
+  const filteredTransactions = React.useMemo(() => {
+    if (!transactions) return [];
+
+    const now = new Date();
+    let filtered = [...transactions];
+
+    if (sortBy === "this_week") {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      filtered = filtered.filter((tx) => new Date(tx.timestamp) >= startOfWeek);
+    } else if (sortBy === "this_month") {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      filtered = filtered.filter((tx) => new Date(tx.timestamp) >= startOfMonth);
+    }
+
+    if (sortBy === "latest") {
+      filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    } else if (sortBy === "oldest") {
+      filtered.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    }
+
+    return filtered;
+  }, [transactions, sortBy]);
+
+  return (
+    <div className="page">
+      <h2>All Transactions History</h2>
+      <button className="red" onClick={onBack}>
+        Back to Dashboard
+      </button>
+      <div style={{ margin: "10px 0" }}>
+        <label htmlFor="sortBy">Sort By: </label>
+        <select
+          id="sortBy"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+        >
+          <option value="latest">Latest to Oldest</option>
+          <option value="oldest">Oldest to Latest</option>
+          <option value="this_week">This Week</option>
+          <option value="this_month">This Month</option>
+        </select>
+      </div>
+      {loading ? (
+        <p>Loading transactions...</p>
+      ) : filteredTransactions.length === 0 ? (
+        <p>No transactions found.</p>
+      ) : (
+        <ul>
+          {filteredTransactions.map((tx) => (
+            <li key={tx._id} style={{ marginBottom: "15px" }}>
+              <strong>Date:</strong> {new Date(tx.timestamp).toLocaleString()}
+              <br />
+              <strong>Type:</strong> {tx.type}
+              <br />
+              <strong>Amount:</strong> ₹{tx.amount.toFixed(2)}
+              <br />
+              {tx.description && (
+                <>
+                  <strong>Description:</strong> {tx.description}
+                  <br />
+                </>
+              )}
+              <strong>Customer:</strong> {tx.customerName}{" "}
+              {tx.customerPhoto && (
+                <img
+                  src={tx.customerPhoto}
+                  alt="Customer"
+                  style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                />
+              )}
+              <br />
+              <strong>Business:</strong> {tx.businessName}{" "}
+              {tx.businessPhoto && (
+                <img
+                  src={tx.businessPhoto}
+                  alt="Business"
+                  style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
+                />
+              )}
+              {tx.photo && (
+                <div>
+                  <img
+                    src={tx.photo}
+                    alt="Bill"
+                    style={{ maxWidth: "100px", marginTop: "5px" }}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {message && <p>{message}</p>}
+    </div>
+  );
+}
+
+function OwnerFlow({ token, phoneNumber, onSelectCustomer, onShowHistory, onBack }) {
+  const [customers, setCustomers] = useState([]);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
-  const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -408,30 +588,14 @@ function OwnerFlow({ token, phoneNumber, onBack }) {
     fetchCustomers();
   }, [token, phoneNumber]);
 
-  const fetchTransactions = async (customerId = null) => {
-    setLoadingTransactions(true);
-    try {
-      let url = `${API_BASE}/transactions/${encodeURIComponent(phoneNumber)}`;
-      if (customerId) {
-        url += `?customerId=${encodeURIComponent(customerId)}`;
-      }
-      const res = await axios.get(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setTransactions(res.data);
-    } catch {
-      setTransactions([]);
-      setMessage("Failed to load transactions.");
-    } finally {
-      setLoadingTransactions(false);
-    }
-  };
-
   return (
     <div className="page">
       <h2>Business Owner Dashboard</h2>
       <button className="red" onClick={onBack}>
         Logout
+      </button>
+      <button className="green" onClick={onShowHistory} style={{ marginLeft: "10px" }}>
+        History
       </button>
       <h3>Customers</h3>
       {loadingCustomers ? (
@@ -444,10 +608,7 @@ function OwnerFlow({ token, phoneNumber, onBack }) {
             <li key={customerId}>
               <button
                 className="blue"
-                onClick={() => {
-                  setSelectedCustomer(customerId);
-                  fetchTransactions(customerId);
-                }}
+                onClick={() => onSelectCustomer(customerId)}
               >
                 {customerName}{" "}
                 {customerPhoto && (
@@ -463,55 +624,6 @@ function OwnerFlow({ token, phoneNumber, onBack }) {
           ))}
         </ul>
       )}
-      {selectedCustomer && (
-        <>
-          <h3>Transactions for {selectedCustomer}</h3>
-          {loadingTransactions ? (
-            <p>Loading transactions...</p>
-          ) : transactions.length === 0 ? (
-            <p>No transactions found.</p>
-          ) : (
-            <ul>
-              {transactions.map((tx) => (
-                <li key={tx._id}>
-                  [{new Date(tx.timestamp).toLocaleString()}] {tx.type} - ₹
-                  {tx.amount.toFixed(2)} {tx.description && `- ${tx.description}`}
-                  <br />
-                  <strong>Customer:</strong> {tx.customerName}{" "}
-                  {tx.customerPhoto && (
-                    <img
-                      src={tx.customerPhoto}
-                      alt="Customer"
-                      style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
-                    />
-                  )}
-                  <br />
-                  <strong>Business:</strong> {tx.businessName}{" "}
-                  {tx.businessPhoto && (
-                    <img
-                      src={tx.businessPhoto}
-                      alt="Business"
-                      style={{ maxWidth: "50px", verticalAlign: "middle", marginLeft: "10px" }}
-                    />
-                  )}
-                  {tx.photo && (
-                    <div>
-                      <img
-                        src={tx.photo}
-                        alt="Bill"
-                        style={{ maxWidth: "100px", marginTop: "5px" }}
-                      />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          <button className="red" onClick={() => setSelectedCustomer(null)}>
-            Back to Customers
-          </button>
-        </>
-      )}
       {message && <p>{message}</p>}
     </div>
   );
@@ -522,6 +634,8 @@ function App() {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [selectedCustomerForTransactions, setSelectedCustomerForTransactions] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const handleLogin = (data) => {
     setToken(data.token);
@@ -533,6 +647,8 @@ function App() {
     setToken(null);
     setUser(null);
     setSelectedBusiness(null);
+    setSelectedCustomerForTransactions(null);
+    setShowHistory(false);
     setPage("welcome");
   };
 
@@ -589,10 +705,31 @@ function App() {
         />
       );
     } else if (user.userType === "owner") {
+      if (showHistory) {
+        return (
+          <TransactionsHistoryPage
+            token={token}
+            ownerPhone={user.phoneNumber}
+            onBack={() => setShowHistory(false)}
+          />
+        );
+      }
+      if (selectedCustomerForTransactions) {
+        return (
+          <CustomerTransactionsPage
+            token={token}
+            ownerPhone={user.phoneNumber}
+            customerId={selectedCustomerForTransactions}
+            onBack={() => setSelectedCustomerForTransactions(null)}
+          />
+        );
+      }
       return (
         <OwnerFlow
           token={token}
           phoneNumber={user.phoneNumber}
+          onSelectCustomer={(customerId) => setSelectedCustomerForTransactions(customerId)}
+          onShowHistory={() => setShowHistory(true)}
           onBack={handleLogout}
         />
       );
