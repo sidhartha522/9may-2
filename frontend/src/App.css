@@ -1,202 +1,280 @@
-/* App.css */
-body {
-  margin: 0;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: #f9f9f9;
-  color: #333;
+/* Modern UI CSS - Aligned with Figma (Version 2) */
+:root {
+  --primary: #4B1C8B;         /* Updated to Figma's darker purple */
+  --primary-light: #6A2D9F;   /* Lighter purple for gradients */
+  --secondary: #00baf2;       /* Retained PhonePe blue */
+  --success: #27ae60;
+  --danger: #e74c3c;
+  --light-bg: #f5f6fa;
+  --white: #ffffff;
+  --text-dark: #2c3e50;
+  --text-medium: #4a5568;     /* Medium gray for secondary text */
+  --text-light: #7f8c8d;
+  --border-radius: 12px;      /* Slightly larger radius */
+  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); /* Softer shadow */
 }
 
+/* Typography - Poppins (as per Figma) */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+body {
+  margin: 0;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--light-bg);
+  color: var(--text-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout */
 .page {
   max-width: 480px;
   margin: 0 auto;
-  padding: 1rem;
-  background: white;
+  padding: 0;
+  background: var(--white);
   min-height: 100vh;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: relative;
+  overflow-x: hidden;
+  padding-bottom: 80px; /* Space for bottom nav + FAB */
 }
 
-h1, h2, h3 {
-  color: #4b0082;
-  margin-bottom: 1rem;
+/* Header */
+.header {
+  background: var(--primary);
+  color: white;
+  padding: 1rem;
   text-align: center;
+  position: relative;
 }
 
+.header h1, .header h2, .header h3 {
+  color: white;
+  margin: 0.5rem 0;
+  font-weight: 600; /* Poppins semi-bold */
+}
+
+/* Inputs (Lighter border, smaller padding) */
 input[type="text"],
 input[type="password"],
 input[type="tel"],
 input[type="number"],
 select {
   width: 100%;
-  padding: 0.6rem 0.8rem;
-  margin: 0.4rem 0 1rem 0;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 1rem;
+  padding: 12px 14px; /* Reduced padding */
+  margin: 8px 0 16px;
+  border: 1px solid #EDEDED; /* Lighter border */
+  border-radius: var(--border-radius);
+  font-size: 16px;
   box-sizing: border-box;
+  background: var(--white);
+  transition: all 0.3s ease;
 }
 
+input:focus, select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(75, 28, 139, 0.2); /* Updated primary */
+  outline: none;
+}
+
+/* Buttons (Full-width, with icons) */
 button {
   cursor: pointer;
   border: none;
-  border-radius: 6px;
-  padding: 0.8rem 1.2rem;
-  font-size: 1rem;
-  margin: 0.3rem;
-  min-width: 120px;
-  transition: background-color 0.3s ease;
+  border-radius: var(--border-radius);
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 8px 0; /* Stack vertically */
+  width: 100%; /* Full-width */
+  transition: all 0.3s ease;
   color: white;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px; /* Space between icon/text */
+  box-shadow: var(--box-shadow);
 }
 
-button:focus {
-  outline: 3px solid #a29bfe;
-  outline-offset: 2px;
+button:active {
+  transform: scale(0.98);
 }
 
 button.violet {
-  background-color: #6a0dad;
-}
-
-button.violet:hover {
-  background-color: #7e22ce;
+  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
 }
 
 button.blue {
-  background-color: #3b82f6;
-}
-
-button.blue:hover {
-  background-color: #2563eb;
+  background: var(--secondary);
+  background: linear-gradient(135deg, #00baf2 0%, #0088cc 100%);
 }
 
 button.green {
-  background-color: #22c55e;
-}
-
-button.green:hover {
-  background-color: #16a34a;
+  background: var(--success);
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
 }
 
 button.red {
-  background-color: #ef4444;
+  background: var(--danger);
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
 }
 
-button.red:hover {
-  background-color: #dc2626;
+/* Cards (Softer shadows) */
+.card {
+  background: var(--white);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  margin: 16px;
+  box-shadow: var(--box-shadow);
 }
 
-.message {
-  margin-top: 1rem;
-  color: #4b0082;
-  font-weight: 600;
-  text-align: center;
-}
-
-.error-message {
-  margin-top: 1rem;
-  color: #dc2626;
-  font-weight: 600;
-  text-align: center;
-}
-
-.profile-photo,
-.transaction-photo {
-  max-width: 100%;
-  max-height: 200px;
-  border-radius: 8px;
-  margin-top: 0.5rem;
-  object-fit: contain;
-  box-shadow: 0 0 8px rgba(106, 13, 173, 0.3);
-}
-
-.transaction-photo-small,
-.small-photo {
-  width: 40px;
-  height: 40px;
+/* Floating Action Button (FAB) */
+.fab {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  object-fit: cover;
-  margin-left: 0.5rem;
-  vertical-align: middle;
-  box-shadow: 0 0 6px rgba(106, 13, 173, 0.3);
-}
-
-.business-list,
-.customer-list,
-.transaction-list {
-  list-style: none;
-  padding: 0;
-  width: 100%;
-  max-height: 300px;
-  overflow-y: auto;
-  margin-bottom: 1rem;
-}
-
-.business-button,
-.customer-button {
-  width: 100%;
-  background: #f3f4f6;
-  color: #4b0082;
-  font-weight: 600;
-  padding: 0.8rem 1rem;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
-}
-
-.business-button:hover,
-.customer-button:hover {
-  background-color: #e0d7f7;
-  border-color: #6a0dad;
-}
-
-.transaction-item {
-  background: #fafafa;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 0.8rem 1rem;
-  margin-bottom: 0.8rem;
-  font-size: 0.9rem;
-  color: #444;
-}
-
-.sort-container {
-  margin: 1rem 0;
-  width: 100%;
+  background: var(--primary);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 12px rgba(75, 28, 139, 0.3);
+  z-index: 101;
+  border: none;
 }
 
-.sort-container label {
-  margin-right: 0.5rem;
+/* Bottom Navigation (Updated for FAB) */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--white);
+  display: flex;
+  justify-content: space-around;
+  padding: 12px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.nav-item.active {
+  color: var(--primary);
+}
+
+/* History Page Styles */
+.history-page {
+  padding: 16px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.sort-by {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.sort-by select {
+  padding: 8px 12px;
+  border: 1px solid var(--primary);
+  border-radius: var(--border-radius);
+  color: var(--primary);
+  background-color: var(--white);
+  font-weight: 500;
+  width: auto;
+  margin: 0;
+}
+
+.time-filter {
+  background-color: var(--primary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--border-radius);
+  font-weight: 500;
+}
+
+/* Transaction Items */
+.transaction-item {
+  background: var(--white);
+  border-radius: var(--border-radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  box-shadow: var(--box-shadow);
+}
+
+.transaction-photo-small {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 12px;
+  background-color: #eee; /* Placeholder color */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+}
+
+.transaction-details {
+  flex: 1;
+}
+
+.transaction-name {
   font-weight: 600;
-  color: #4b0082;
+  margin-bottom: 4px;
+  color: var(--text-dark);
 }
 
+.transaction-time {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.transaction-amount {
+  font-weight: 700;
+  color: var(--text-dark);
+  font-size: 18px;
+}
+
+/* Responsive Tweaks */
 @media (max-width: 480px) {
   .page {
-    padding: 1rem 0.5rem;
+    padding-bottom: 80px; /* Adjusted for FAB */
   }
-
-  button {
-    min-width: 100px;
-    font-size: 0.9rem;
-    padding: 0.6rem 1rem;
+  
+  .fab {
+    bottom: 60px;
   }
-
-  input[type="text"],
-  input[type="password"],
-  input[type="tel"],
-  input[type="number"],
-  select {
-    font-size: 0.9rem;
+  
+  .history-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .time-filter {
+    align-self: flex-end;
   }
 }
